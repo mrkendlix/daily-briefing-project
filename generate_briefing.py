@@ -571,365 +571,280 @@ def ring_dashoffset(pct):
 
 
 def build_html(whoop, weather, news, markets, ai_pulse, sun, quote, city, lat, lon):
-    """Assemble the full HTML briefing."""
+    """Assemble email-compatible HTML briefing using tables and inline styles."""
     now = datetime.now()
-    date_str = fmt_date(now, "%A · %B %-d, %Y")
+    date_str = fmt_date(now, "%A, %B %-d, %Y")
     hour = now.hour
     greeting = "Good Morning" if hour < 12 else "Good Afternoon" if hour < 17 else "Good Evening"
 
+    # Colors — clean light theme
+    C = {
+        "bg": "#F4F5F7", "surface": "#FFFFFF", "raised": "#F0F1F3", "border": "#E2E4E9",
+        "text": "#1A1D23", "text2": "#5F6577", "muted": "#9198A8",
+        "green": "#0D9B6E", "green_dim": "#E8F7F1",
+        "amber": "#C47E0A", "amber_dim": "#FFF6E5",
+        "red": "#D93025", "red_dim": "#FDECEA",
+        "blue": "#1A73E8", "blue_dim": "#E8F0FE",
+        "purple": "#7B3FE4", "purple_dim": "#F3ECFD",
+    }
+
+    def section_label(text):
+        return f'''<tr><td style="padding:32px 0 16px 0;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:{C["muted"]};border-bottom:1px solid {C["border"]};">{text}</td></tr>'''
+
+    def card_start(extra_style=""):
+        return f'<tr><td style="padding:8px 0;"><table width="100%" cellpadding="0" cellspacing="0" style="background-color:{C["surface"]};border:1px solid {C["border"]};border-radius:12px;{extra_style}"><tr><td style="padding:24px;">'
+
+    def card_end():
+        return '</td></tr></table></td></tr>'
+
+    def divider():
+        return f'<tr><td style="padding:20px 0;"><table width="100%" cellpadding="0" cellspacing="0"><tr><td style="height:1px;background:{C["border"]};"></td></tr></table></td></tr>'
+
     # ── WHOOP section ──
+    whoop_section = ""
     if whoop:
         recovery_pct = whoop.get("recovery_pct", 50)
         sleep_perf = whoop.get("sleep_performance", 80)
         rec_info = interpret_recovery(recovery_pct)
-        rec_color_var = {"green": "var(--accent-green)", "amber": "var(--accent-amber)", "red": "var(--accent-red)"}[rec_info["color"]]
-        rec_color_dim = {"green": "var(--accent-green-dim)", "amber": "var(--accent-amber-dim)", "red": "var(--accent-red-dim)"}[rec_info["color"]]
+        rec_color = {"green": C["green"], "amber": C["amber"], "red": C["red"]}[rec_info["color"]]
+        rec_bg = {"green": C["green_dim"], "amber": C["amber_dim"], "red": C["red_dim"]}[rec_info["color"]]
 
-        whoop_html = f"""
-    <div class="section-label">Sleep &amp; Recovery</div>
-    <div class="recovery-hero">
-      <div class="recovery-rings">
-        <div class="recovery-ring">
-          <svg viewBox="0 0 130 130">
-            <circle class="recovery-ring-bg" cx="65" cy="65" r="60"/>
-            <circle class="recovery-ring-fill" style="stroke:{rec_color_var};stroke-dashoffset:{ring_dashoffset(recovery_pct)}" cx="65" cy="65" r="60"/>
-          </svg>
-          <div class="recovery-ring-label">
-            <span class="recovery-ring-value" style="color:{rec_color_var}">{recovery_pct}%</span>
-            <span class="recovery-ring-unit">Recovery</span>
+        whoop_section = f'''
+        {section_label("SLEEP &amp; RECOVERY")}
+        {card_start()}
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td width="100" style="text-align:center;vertical-align:top;padding-right:16px;">
+            <div style="font-size:42px;font-weight:300;color:{rec_color};line-height:1;">{recovery_pct}%</div>
+            <div style="font-size:11px;color:{C["text2"]};text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">Recovery</div>
+          </td>
+          <td width="100" style="text-align:center;vertical-align:top;padding-right:20px;">
+            <div style="font-size:42px;font-weight:300;color:{C["blue"]};line-height:1;">{sleep_perf}%</div>
+            <div style="font-size:11px;color:{C["text2"]};text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">Sleep Perf</div>
+          </td>
+          <td style="vertical-align:top;">
+            <div style="font-size:22px;color:{C["text"]};margin-bottom:6px;">{rec_info["status"]}</div>
+            <div style="font-size:14px;color:{C["text2"]};line-height:1.6;margin-bottom:12px;">{rec_info["advice"]}</div>
+            <div style="display:inline-block;padding:6px 14px;border-radius:16px;background:{rec_bg};font-size:13px;color:{rec_color};">Strain Target: {rec_info["strain_low"]:.1f} - {rec_info["strain_high"]:.1f}</div>
+          </td>
+        </tr></table>
+        {card_end()}
+        <tr><td style="padding:6px 0;">
+          <table width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td width="33%" style="padding-right:4px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color:{C["surface"]};border:1px solid {C["border"]};border-radius:10px;"><tr><td style="padding:16px;text-align:center;">
+                <div style="font-size:24px;color:{C["text"]};">{whoop.get("sleep_duration", "-")}</div>
+                <div style="font-size:10px;color:{C["muted"]};text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">Sleep</div>
+              </td></tr></table>
+            </td>
+            <td width="33%" style="padding:0 2px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color:{C["surface"]};border:1px solid {C["border"]};border-radius:10px;"><tr><td style="padding:16px;text-align:center;">
+                <div style="font-size:24px;color:{C["text"]};">{whoop.get("hrv", "-")}</div>
+                <div style="font-size:10px;color:{C["muted"]};text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">HRV (ms)</div>
+              </td></tr></table>
+            </td>
+            <td width="33%" style="padding-left:4px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background-color:{C["surface"]};border:1px solid {C["border"]};border-radius:10px;"><tr><td style="padding:16px;text-align:center;">
+                <div style="font-size:24px;color:{C["text"]};">{whoop.get("rhr", "-")}</div>
+                <div style="font-size:10px;color:{C["muted"]};text-transform:uppercase;letter-spacing:1.5px;margin-top:4px;">RHR (bpm)</div>
+              </td></tr></table>
+            </td>
+          </tr></table>
+        </td></tr>
+        {card_start()}
+          <div style="font-size:13px;color:{C["text2"]};margin-bottom:10px;">Sleep Stages</div>
+          <table width="100%" cellpadding="0" cellspacing="0" style="border-radius:7px;overflow:hidden;"><tr>
+            <td width="{whoop.get('stage_awake', 8)}%" style="height:12px;background:{C["amber"]};"></td>
+            <td width="{whoop.get('stage_light', 42)}%" style="height:12px;background:{C["blue"]};"></td>
+            <td width="{whoop.get('stage_deep', 22)}%" style="height:12px;background:{C["purple"]};"></td>
+            <td width="{whoop.get('stage_rem', 28)}%" style="height:12px;background:{C["green"]};"></td>
+          </tr></table>
+          <div style="margin-top:10px;font-size:12px;color:{C["text2"]};">
+            <span style="color:{C["amber"]};">&#9679;</span> Awake {whoop.get('stage_awake', 8)}%&nbsp;&nbsp;
+            <span style="color:{C["blue"]};">&#9679;</span> Light {whoop.get('stage_light', 42)}%&nbsp;&nbsp;
+            <span style="color:{C["purple"]};">&#9679;</span> Deep {whoop.get('stage_deep', 22)}%&nbsp;&nbsp;
+            <span style="color:{C["green"]};">&#9679;</span> REM {whoop.get('stage_rem', 28)}%
           </div>
-        </div>
-        <div class="recovery-ring">
-          <svg viewBox="0 0 130 130">
-            <circle class="recovery-ring-bg" cx="65" cy="65" r="60"/>
-            <circle class="recovery-ring-fill" style="stroke:var(--accent-blue);stroke-dashoffset:{ring_dashoffset(sleep_perf)}" cx="65" cy="65" r="60"/>
-          </svg>
-          <div class="recovery-ring-label">
-            <span class="recovery-ring-value" style="color:var(--accent-blue)">{sleep_perf}%</span>
-            <span class="recovery-ring-unit">Sleep Perf</span>
-          </div>
-        </div>
-      </div>
-      <div class="recovery-details">
-        <div class="recovery-status">{rec_info["status"]}</div>
-        <div class="recovery-advice">{rec_info["advice"]} You slept {sleep_perf}% of what your body needed.</div>
-        <div class="strain-target" style="background:{rec_color_dim};color:{rec_color_var}">⎯ Strain Target: {rec_info["strain_low"]:.1f}–{rec_info["strain_high"]:.1f}</div>
-      </div>
-    </div>
-    <div class="stat-row">
-      <div class="stat-card">
-        <div class="stat-value">{whoop.get("sleep_duration", "—")}</div>
-        <div class="stat-label">Sleep</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{whoop.get("hrv", "—")}</div>
-        <div class="stat-label">HRV (ms)</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-value">{whoop.get("rhr", "—")}</div>
-        <div class="stat-label">RHR (bpm)</div>
-      </div>
-    </div>
-    <div class="sleep-stages">
-      <div class="sleep-stages-title">Sleep Stages</div>
-      <div class="stages-bar">
-        <div class="stage-awake" style="flex:{whoop.get('stage_awake', 8)}"></div>
-        <div class="stage-light" style="flex:{whoop.get('stage_light', 42)}"></div>
-        <div class="stage-deep" style="flex:{whoop.get('stage_deep', 22)}"></div>
-        <div class="stage-rem" style="flex:{whoop.get('stage_rem', 28)}"></div>
-      </div>
-      <div class="stages-legend">
-        <div class="legend-item"><div class="legend-dot" style="background:var(--accent-amber)"></div> Awake {whoop.get('stage_awake', 8)}%</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--accent-blue)"></div> Light {whoop.get('stage_light', 42)}%</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--accent-purple)"></div> Deep {whoop.get('stage_deep', 22)}%</div>
-        <div class="legend-item"><div class="legend-dot" style="background:var(--accent-green)"></div> REM {whoop.get('stage_rem', 28)}%</div>
-      </div>
-    </div>"""
+        {card_end()}'''
     else:
-        whoop_html = """
-    <div class="section-label">Sleep &amp; Recovery</div>
-    <div class="weather-advisory" style="background:var(--accent-amber-dim);border-left-color:var(--accent-amber);color:var(--accent-amber);">
-      ⚠ WHOOP data unavailable. Check your API connection in .env
-    </div>"""
+        whoop_section = f'''
+        {section_label("SLEEP &amp; RECOVERY")}
+        {card_start()}
+          <div style="font-size:14px;color:{C["amber"]};padding:8px 0;">WHOOP data unavailable. Check your API connection in .env</div>
+        {card_end()}'''
 
     # ── Weather section ──
+    weather_section = ""
     if weather:
-        weather_html = f"""
-    <div class="section-label">Weather — {city}</div>
-    <div class="weather-card">
-      <div class="weather-main">
-        <div><span class="weather-temp">{weather["temp"]}<span class="weather-temp-unit">°F</span></span></div>
-        <div class="weather-desc">
-          <div class="weather-condition">{weather["condition"]}</div>
-          <div class="weather-feels">Feels like {weather["feels_like"]}°F · High {weather["high"]}° / Low {weather["low"]}°</div>
-        </div>
-      </div>
-      <div class="weather-details">
-        <div class="weather-detail"><div class="weather-detail-value">{weather["humidity"]}%</div><div class="weather-detail-label">Humidity</div></div>
-        <div class="weather-detail"><div class="weather-detail-value">{weather["wind"]} mph</div><div class="weather-detail-label">Wind</div></div>
-        <div class="weather-detail"><div class="weather-detail-value">{weather["uvi"]}</div><div class="weather-detail-label">UV Index</div></div>
-        <div class="weather-detail"><div class="weather-detail-value">{weather["rain_chance"]}%</div><div class="weather-detail-label">Rain</div></div>
-      </div>
-      <div class="weather-advisory">{weather["advisory"]}</div>
-    </div>"""
-    else:
-        weather_html = ""
+        weather_section = f'''
+        {section_label("WEATHER - " + city.upper())}
+        {card_start()}
+          <table width="100%" cellpadding="0" cellspacing="0"><tr>
+            <td style="vertical-align:top;">
+              <div style="font-size:56px;color:{C["text"]};line-height:1;">{weather["temp"]}<span style="font-size:24px;color:{C["muted"]};">&deg;F</span></div>
+            </td>
+            <td style="vertical-align:top;padding-left:20px;">
+              <div style="font-size:18px;color:{C["text"]};margin-bottom:4px;">{weather["condition"]}</div>
+              <div style="font-size:14px;color:{C["text2"]};">Feels like {weather["feels_like"]}&deg;F &middot; High {weather["high"]}&deg; / Low {weather["low"]}&deg;</div>
+            </td>
+          </tr></table>
+          <table width="100%" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr>
+            <td width="25%" style="text-align:center;padding:10px 0;background:{C["raised"]};border-radius:8px;">
+              <div style="font-size:15px;color:{C["text"]};">{weather["humidity"]}%</div>
+              <div style="font-size:10px;color:{C["muted"]};text-transform:uppercase;letter-spacing:1px;">Humidity</div>
+            </td>
+            <td width="4"></td>
+            <td width="25%" style="text-align:center;padding:10px 0;background:{C["raised"]};border-radius:8px;">
+              <div style="font-size:15px;color:{C["text"]};">{weather["wind"]} mph</div>
+              <div style="font-size:10px;color:{C["muted"]};text-transform:uppercase;letter-spacing:1px;">Wind</div>
+            </td>
+            <td width="4"></td>
+            <td width="25%" style="text-align:center;padding:10px 0;background:{C["raised"]};border-radius:8px;">
+              <div style="font-size:15px;color:{C["text"]};">{weather["uvi"]}</div>
+              <div style="font-size:10px;color:{C["muted"]};text-transform:uppercase;letter-spacing:1px;">UV Index</div>
+            </td>
+            <td width="4"></td>
+            <td width="25%" style="text-align:center;padding:10px 0;background:{C["raised"]};border-radius:8px;">
+              <div style="font-size:15px;color:{C["text"]};">{weather["rain_chance"]}%</div>
+              <div style="font-size:10px;color:{C["muted"]};text-transform:uppercase;letter-spacing:1px;">Rain</div>
+            </td>
+          </tr></table>
+          <div style="margin-top:14px;padding:12px 16px;background:{C["blue_dim"]};border-left:3px solid {C["blue"]};border-radius:8px;font-size:13px;color:{C["blue"]};line-height:1.5;">{weather["advisory"]}</div>
+        {card_end()}'''
 
     # ── News section ──
-    news_html = ""
+    news_section = ""
     if news:
-        news_html = '\n    <div class="section-label">Top Business Stories</div>\n'
-        for i, article in enumerate(news):
-            source_style = ' style="color: var(--accent-green);"' if article.get("is_vc") else ""
-            news_html += f"""
-    <div class="news-item" style="--i:{i}">
-      <div class="news-source"{source_style}>{article["source"]}</div>
-      <div class="news-headline">{article["headline"]}</div>
-      <div class="news-summary">{article["summary"] or ""}</div>
-    </div>\n"""
+        news_section = section_label("TOP BUSINESS STORIES")
+        for article in news:
+            source_color = C["green"] if article.get("is_vc") else C["amber"]
+            news_section += f'''
+            {card_start()}
+              <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:{source_color};margin-bottom:6px;">{article["source"]}</div>
+              <div style="font-size:18px;color:{C["text"]};line-height:1.35;margin-bottom:6px;">{article["headline"]}</div>
+              <div style="font-size:14px;color:{C["text2"]};line-height:1.6;">{article["summary"] or ""}</div>
+            {card_end()}'''
 
     # ── Markets section ──
-    markets_html = ""
+    markets_section = ""
     if markets:
-        markets_html = '\n    <div class="section-label">Market Snapshot — Yesterday\'s Close</div>\n    <div class="markets-grid">\n'
-        for i, m in enumerate(markets):
-            markets_html += f"""      <div class="market-card" style="--i:{i}">
-        <div class="market-name">{m["name"]}</div>
-        <div class="market-price">{m["price"]}</div>
-        <div class="market-change market-{m["direction"]}">{m["change_display"]}</div>
-      </div>\n"""
-        markets_html += "    </div>\n"
+        markets_section = section_label("MARKET SNAPSHOT")
+        # Build rows of 3
+        for i in range(0, len(markets), 3):
+            row = markets[i:i+3]
+            markets_section += '<tr><td style="padding:4px 0;"><table width="100%" cellpadding="0" cellspacing="0"><tr>'
+            for j, m in enumerate(row):
+                change_color = C["green"] if m["direction"] == "up" else C["red"]
+                pad = 'padding-right:4px;' if j == 0 else ('padding:0 2px;' if j == 1 else 'padding-left:4px;')
+                markets_section += f'''
+                <td width="33%" style="{pad}">
+                  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:{C["surface"]};border:1px solid {C["border"]};border-radius:10px;"><tr><td style="padding:16px;">
+                    <div style="font-size:11px;color:{C["muted"]};text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;">{m["name"]}</div>
+                    <div style="font-size:20px;color:{C["text"]};margin-bottom:2px;">{m["price"]}</div>
+                    <div style="font-size:13px;color:{change_color};">{m["change_display"]}</div>
+                  </td></tr></table>
+                </td>'''
+            markets_section += '</tr></table></td></tr>'
 
     # ── AI Pulse section ──
+    ai_section = ""
     if ai_pulse:
-        ai_html = f"""
-    <div class="section-label">AI / Tech Pulse</div>
-    <div class="ai-pulse-card">
-      <div class="ai-pulse-source">{ai_pulse["source"]}</div>
-      <div class="ai-pulse-headline">{ai_pulse["headline"]}</div>
-      <div class="ai-pulse-summary">{ai_pulse["summary"] or ""}</div>
-    </div>"""
-    else:
-        ai_html = ""
+        ai_section = f'''
+        {section_label("AI / TECH PULSE")}
+        {card_start()}
+          <div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:{C["purple"]};margin-bottom:6px;">{ai_pulse["source"]}</div>
+          <div style="font-size:18px;color:{C["text"]};line-height:1.35;margin-bottom:6px;">{ai_pulse["headline"]}</div>
+          <div style="font-size:14px;color:{C["text2"]};line-height:1.6;">{ai_pulse["summary"] or ""}</div>
+        {card_end()}'''
 
     # ── Sun times section ──
+    sun_section = ""
     if sun:
-        sun_html = f"""
-    <div class="section-label">Daylight</div>
-    <div class="sun-card">
-      <div class="sun-item">
-        <div class="sun-icon">🌅</div>
-        <div>
-          <div class="sun-time">{sun["sunrise"]}</div>
-          <div class="sun-label">Sunrise</div>
-        </div>
-      </div>
-      <div class="sun-divider"></div>
-      <div class="sun-golden">
-        <div class="sun-golden-value">{sun["golden_hour"]}</div>
-        <div class="sun-golden-label">Golden Hour</div>
-      </div>
-      <div class="sun-divider"></div>
-      <div class="sun-item">
-        <div class="sun-icon">🌇</div>
-        <div>
-          <div class="sun-time">{sun["sunset"]}</div>
-          <div class="sun-label">Sunset</div>
-        </div>
-      </div>
-    </div>"""
-    else:
-        sun_html = ""
+        sun_section = f'''
+        {section_label("DAYLIGHT")}
+        {card_start()}
+        <table width="100%" cellpadding="0" cellspacing="0"><tr>
+          <td style="text-align:center;">
+            <div style="font-size:22px;color:{C["text"]};">{sun["sunrise"]}</div>
+            <div style="font-size:10px;color:{C["muted"]};text-transform:uppercase;letter-spacing:1.5px;">Sunrise</div>
+          </td>
+          <td width="1" style="background:{C["border"]};"></td>
+          <td style="text-align:center;">
+            <div style="font-size:16px;color:{C["amber"]};">{sun["golden_hour"]}</div>
+            <div style="font-size:10px;color:{C["muted"]};text-transform:uppercase;letter-spacing:1.5px;">Golden Hour</div>
+          </td>
+          <td width="1" style="background:{C["border"]};"></td>
+          <td style="text-align:center;">
+            <div style="font-size:22px;color:{C["text"]};">{sun["sunset"]}</div>
+            <div style="font-size:10px;color:{C["muted"]};text-transform:uppercase;letter-spacing:1.5px;">Sunset</div>
+          </td>
+        </tr></table>
+        {card_end()}'''
 
     # ── Quote section ──
-    quote_html = f"""
-    <div class="section-label">Daily Quote</div>
-    <div class="quote-card">
-      <div class="quote-mark">&ldquo;</div>
-      <div class="quote-text">{quote["text"]}</div>
-      <div class="quote-attr">— {quote["author"]}</div>
-    </div>"""
+    quote_section = f'''
+    {section_label("DAILY QUOTE")}
+    {card_start()}
+      <div style="text-align:center;">
+        <div style="font-size:48px;color:{C["green"]};opacity:0.3;line-height:0.5;margin-bottom:12px;">&ldquo;</div>
+        <div style="font-size:20px;font-style:italic;color:{C["text"]};line-height:1.55;margin-bottom:14px;">{quote["text"]}</div>
+        <div style="font-size:13px;color:{C["muted"]};">&mdash; {quote["author"]}</div>
+      </div>
+    {card_end()}'''
 
-    # ── Assemble full HTML ──
-    # Read CSS from the template file
-    css = get_css()
+    gen_time = fmt_date(now, "%-I:%M %p")
 
-    html = f"""<!DOCTYPE html>
+    html = f'''<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Daily Briefing — {date_str}</title>
-<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,300;1,9..40,400&display=swap" rel="stylesheet">
-<style>
-{css}
-</style>
+<title>Daily Briefing - {date_str}</title>
+<!--[if mso]><style>table,td {{font-family:Arial,sans-serif !important;}}</style><![endif]-->
 </head>
-<body>
-<div class="container">
+<body style="margin:0;padding:0;background-color:{C["bg"]};font-family:Georgia,'Times New Roman',serif;">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background-color:{C["bg"]};">
+<tr><td align="center" style="padding:40px 16px 60px;">
+<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="max-width:600px;">
 
-  <header class="header">
-    <div class="header-date">{date_str}</div>
-    <h1 class="header-title">{greeting}</h1>
-    <p class="header-subtitle">Your daily briefing — 📍 {city}</p>
-  </header>
+  <!-- Header -->
+  <tr><td style="text-align:center;padding-bottom:40px;">
+    <div style="font-size:11px;font-weight:bold;letter-spacing:2.5px;text-transform:uppercase;color:{C["green"]};margin-bottom:14px;font-family:Arial,sans-serif;">{date_str}</div>
+    <div style="font-size:44px;color:{C["text"]};line-height:1.1;margin-bottom:10px;">{greeting}</div>
+    <div style="font-size:15px;color:{C["text2"]};font-family:Arial,sans-serif;">Your daily briefing &mdash; {city}</div>
+  </td></tr>
 
-  {whoop_html}
+  {divider()}
+  {whoop_section}
+  {divider()}
+  {weather_section}
+  {divider()}
+  {news_section}
+  {divider()}
+  {markets_section}
+  {divider()}
+  {ai_section}
+  {sun_section}
+  {divider()}
+  {quote_section}
 
-  <div class="divider"></div>
+  <!-- Footer -->
+  <tr><td style="text-align:center;padding-top:24px;border-top:1px solid {C["border"]};">
+    <div style="font-size:12px;color:{C["muted"]};line-height:1.7;">
+      Generated at {gen_time} &middot; Data from WHOOP, OpenWeather, NewsAPI &amp; more
+    </div>
+  </td></tr>
 
-  {weather_html}
-
-  <div class="divider"></div>
-
-  {news_html}
-
-  <div class="divider"></div>
-
-  {markets_html}
-
-  <div class="divider"></div>
-
-  {ai_html}
-
-  {sun_html}
-
-  <div class="divider"></div>
-
-  {quote_html}
-
-  <footer class="footer">
-    <p class="footer-text">
-      Generated at {fmt_date(now, "%-I:%M %p")} · Data from WHOOP, OpenWeather, NewsAPI &amp; more
-    </p>
-  </footer>
-
-</div>
+</table>
+</td></tr></table>
 </body>
-</html>"""
+</html>'''
 
     return html
 
 
 def get_css():
-    """Return the full CSS for the briefing."""
-    return """:root {
-    --bg: #0C0E12;
-    --surface: #14171E;
-    --surface-raised: #1A1E28;
-    --border: #252A36;
-    --text-primary: #E8EAF0;
-    --text-secondary: #8A90A0;
-    --text-muted: #555B6E;
-    --accent-green: #44D7A8;
-    --accent-green-dim: rgba(68,215,168,0.12);
-    --accent-amber: #F5A623;
-    --accent-amber-dim: rgba(245,166,35,0.12);
-    --accent-red: #EF5350;
-    --accent-red-dim: rgba(239,83,80,0.12);
-    --accent-blue: #42A5F5;
-    --accent-blue-dim: rgba(66,165,245,0.12);
-    --accent-purple: #AB7AFF;
-    --accent-purple-dim: rgba(171,122,255,0.12);
-    --serif: 'Instrument Serif', Georgia, serif;
-    --sans: 'DM Sans', -apple-system, sans-serif;
-    --radius: 16px;
-    --radius-sm: 10px;
-  }
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  body { background: var(--bg); color: var(--text-primary); font-family: var(--sans); font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
-  .container { max-width: 680px; margin: 0 auto; padding: 48px 24px 80px; }
-  .header { text-align: center; margin-bottom: 56px; }
-  .header-date { font-size: 12px; font-weight: 500; letter-spacing: 2.5px; text-transform: uppercase; color: var(--accent-green); margin-bottom: 16px; }
-  .header-title { font-family: var(--serif); font-size: 52px; font-weight: 400; line-height: 1.1; color: var(--text-primary); margin-bottom: 12px; }
-  .header-subtitle { font-size: 15px; color: var(--text-secondary); font-weight: 300; }
-  .divider { height: 1px; background: linear-gradient(90deg, transparent, var(--border), transparent); margin: 40px 0; }
-  .section-label { font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
-  .section-label::after { content: ''; flex: 1; height: 1px; background: var(--border); }
-  .recovery-hero { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 36px; margin-bottom: 20px; display: flex; align-items: center; gap: 32px; }
-  .recovery-rings { display: flex; gap: 20px; flex-shrink: 0; }
-  .recovery-ring { position: relative; width: 110px; height: 110px; flex-shrink: 0; }
-  .recovery-ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
-  .recovery-ring-bg { fill: none; stroke: var(--surface-raised); stroke-width: 8; }
-  .recovery-ring-fill { fill: none; stroke: var(--accent-green); stroke-width: 8; stroke-linecap: round; stroke-dasharray: 377; stroke-dashoffset: 49; }
-  .recovery-ring-label { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-  .recovery-ring-value { font-family: var(--serif); font-size: 34px; color: var(--accent-green); line-height: 1; }
-  .recovery-ring-unit { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }
-  .recovery-details { flex: 1; }
-  .recovery-status { font-family: var(--serif); font-size: 26px; color: var(--text-primary); margin-bottom: 6px; }
-  .recovery-advice { font-size: 14px; color: var(--text-secondary); line-height: 1.65; margin-bottom: 16px; }
-  .strain-target { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 20px; background: var(--accent-green-dim); font-size: 13px; font-weight: 500; color: var(--accent-green); }
-  .stat-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; }
-  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 18px; text-align: center; }
-  .stat-value { font-family: var(--serif); font-size: 28px; color: var(--text-primary); line-height: 1.2; }
-  .stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }
-  .sleep-stages { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 22px 24px; margin-bottom: 40px; }
-  .sleep-stages-title { font-size: 13px; font-weight: 500; color: var(--text-secondary); margin-bottom: 14px; }
-  .stages-bar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin-bottom: 14px; }
-  .stage-awake { background: var(--accent-amber); }
-  .stage-light { background: var(--accent-blue); }
-  .stage-deep { background: var(--accent-purple); }
-  .stage-rem { background: var(--accent-green); }
-  .stages-legend { display: flex; gap: 20px; flex-wrap: wrap; }
-  .legend-item { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-secondary); }
-  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
-  .weather-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px 36px; margin-bottom: 20px; }
-  .weather-main { display: flex; align-items: center; gap: 28px; margin-bottom: 24px; }
-  .weather-temp { font-family: var(--serif); font-size: 64px; line-height: 1; color: var(--text-primary); }
-  .weather-temp-unit { font-size: 28px; color: var(--text-muted); vertical-align: super; }
-  .weather-desc { flex: 1; }
-  .weather-condition { font-size: 18px; font-weight: 500; color: var(--text-primary); margin-bottom: 4px; }
-  .weather-feels { font-size: 14px; color: var(--text-secondary); }
-  .weather-details { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
-  .weather-detail { text-align: center; padding: 12px 0; border-radius: var(--radius-sm); background: var(--surface-raised); }
-  .weather-detail-value { font-size: 16px; font-weight: 500; color: var(--text-primary); }
-  .weather-detail-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-top: 2px; }
-  .weather-advisory { margin-top: 16px; padding: 14px 18px; border-radius: var(--radius-sm); background: var(--accent-blue-dim); border-left: 3px solid var(--accent-blue); font-size: 13px; color: var(--accent-blue); line-height: 1.5; }
-  .news-item { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 24px 28px; margin-bottom: 12px; }
-  .news-source { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-amber); margin-bottom: 8px; }
-  .news-headline { font-family: var(--serif); font-size: 20px; line-height: 1.35; color: var(--text-primary); margin-bottom: 8px; }
-  .news-summary { font-size: 14px; color: var(--text-secondary); line-height: 1.65; }
-  .markets-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 40px; }
-  .market-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 20px; }
-  .market-name { font-size: 12px; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; }
-  .market-price { font-family: var(--serif); font-size: 22px; color: var(--text-primary); margin-bottom: 4px; }
-  .market-change { font-size: 13px; font-weight: 500; }
-  .market-up { color: var(--accent-green); }
-  .market-down { color: var(--accent-red); }
-  .ai-pulse-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 24px 28px; margin-bottom: 40px; }
-  .ai-pulse-source { font-size: 11px; font-weight: 600; letter-spacing: 1.5px; text-transform: uppercase; color: var(--accent-purple); margin-bottom: 8px; }
-  .ai-pulse-headline { font-family: var(--serif); font-size: 20px; line-height: 1.35; color: var(--text-primary); margin-bottom: 8px; }
-  .ai-pulse-summary { font-size: 14px; color: var(--text-secondary); line-height: 1.65; margin-bottom: 14px; }
-  .ai-pulse-why { padding: 12px 16px; border-radius: var(--radius-sm); background: var(--accent-purple-dim); border-left: 3px solid var(--accent-purple); font-size: 13px; color: var(--accent-purple); line-height: 1.5; }
-  .sun-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 22px 28px; margin-bottom: 40px; display: flex; align-items: center; justify-content: space-between; }
-  .sun-item { display: flex; align-items: center; gap: 12px; }
-  .sun-icon { font-size: 28px; line-height: 1; }
-  .sun-time { font-family: var(--serif); font-size: 22px; color: var(--text-primary); line-height: 1.2; }
-  .sun-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; }
-  .sun-divider { width: 1px; height: 40px; background: var(--border); }
-  .sun-golden { text-align: center; }
-  .sun-golden-value { font-family: var(--serif); font-size: 18px; color: var(--accent-amber); line-height: 1.2; }
-  .sun-golden-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1.5px; }
-  .quote-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 36px 40px; text-align: center; margin-bottom: 40px; }
-  .quote-mark { font-family: var(--serif); font-size: 72px; line-height: 0.5; color: var(--accent-green); opacity: 0.3; margin-bottom: 12px; }
-  .quote-text { font-family: var(--serif); font-style: italic; font-size: 22px; line-height: 1.55; color: var(--text-primary); margin-bottom: 16px; }
-  .quote-attr { font-size: 13px; color: var(--text-muted); letter-spacing: 0.5px; }
-  .footer { text-align: center; padding-top: 32px; border-top: 1px solid var(--border); }
-  .footer-text { font-size: 12px; color: var(--text-muted); line-height: 1.7; }
-  @media (max-width: 600px) {
-    .header-title { font-size: 38px; }
-    .recovery-hero { flex-direction: column; text-align: center; padding: 28px 24px; gap: 24px; }
-    .recovery-rings { justify-content: center; }
-    .stat-row { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    .stat-card { padding: 14px 8px; }
-    .stat-value { font-size: 22px; }
-    .weather-details { grid-template-columns: repeat(2, 1fr); }
-    .markets-grid { grid-template-columns: repeat(2, 1fr); }
-    .sun-card { flex-wrap: wrap; gap: 16px; justify-content: center; }
-    .sun-divider { width: 40px; height: 1px; }
-    .weather-temp { font-size: 48px; }
-    .quote-text { font-size: 18px; }
-  }"""
+    """No longer needed — all styles are inline for email compatibility."""
+    return ""
 
 
 # ═══════════════════════════════════════════════
@@ -1016,16 +931,16 @@ def main():
     date_str = fmt_date(datetime.now(), "%B %-d, %Y")
 
     if args.output:
-        Path(args.output).write_text(html)
-        print(f"💾 Saved to {args.output}")
+        Path(args.output).write_text(html, encoding="utf-8")
+        print(f"Saved to {args.output}")
 
     if args.preview:
         # Open in browser
-        tmp = tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w")
+        tmp = tempfile.NamedTemporaryFile(suffix=".html", delete=False, mode="w", encoding="utf-8")
         tmp.write(html)
         tmp.close()
         webbrowser.open(f"file://{tmp.name}")
-        print(f"🌐 Opened in browser: {tmp.name}")
+        print(f"Opened in browser: {tmp.name}")
     else:
         # Send email
         send_email(html, date_str)
@@ -1034,8 +949,8 @@ def main():
         output_dir = Path(__file__).parent / "output"
         output_dir.mkdir(exist_ok=True)
         filename = f"briefing-{datetime.now().strftime('%Y-%m-%d')}.html"
-        (output_dir / filename).write_text(html)
-        print(f"💾 Saved copy to output/{filename}")
+        (output_dir / filename).write_text(html, encoding="utf-8")
+        print(f"Saved copy to output/{filename}")
 
 
 if __name__ == "__main__":
