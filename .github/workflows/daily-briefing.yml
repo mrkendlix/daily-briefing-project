@@ -1,0 +1,39 @@
+name: Daily Briefing
+
+on:
+  schedule:
+    # Runs at 6:30 AM Eastern Time (11:30 UTC during EDT, 10:30 UTC during EST)
+    # Adjust the cron to your timezone — this is UTC
+    - cron: '30 10 * * *'  # 10:30 UTC = 6:30 AM ET (winter) / 5:30 AM ET (summer)
+  workflow_dispatch:  # Allow manual trigger for testing
+
+jobs:
+  generate-briefing:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate and send briefing
+        env:
+          WHOOP_CLIENT_ID: ${{ secrets.WHOOP_CLIENT_ID }}
+          WHOOP_CLIENT_SECRET: ${{ secrets.WHOOP_CLIENT_SECRET }}
+          WHOOP_REFRESH_TOKEN: ${{ secrets.WHOOP_REFRESH_TOKEN }}
+          OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+          NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
+          EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          EMAIL_RECIPIENT: ${{ secrets.EMAIL_RECIPIENT }}
+          DEFAULT_LAT: ${{ vars.DEFAULT_LAT || '40.7128' }}
+          DEFAULT_LON: ${{ vars.DEFAULT_LON || '-74.0060' }}
+          DEFAULT_CITY: ${{ vars.DEFAULT_CITY || 'New York City' }}
+        run: python generate_briefing.py

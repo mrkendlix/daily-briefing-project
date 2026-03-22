@@ -1,0 +1,6 @@
+.env
+.whoop_tokens.json
+output/
+__pycache__/
+*.pyc
+.DS_Store
