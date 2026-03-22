@@ -2,10 +2,13 @@ name: Daily Briefing
 
 on:
   schedule:
-    # Runs at 6:30 AM Eastern Time (11:30 UTC during EDT, 10:30 UTC during EST)
-    # Adjust the cron to your timezone — this is UTC
-    - cron: '30 10 * * *'  # 10:30 UTC = 6:30 AM ET (winter) / 5:30 AM ET (summer)
+    # Runs at 6:30 AM Eastern Time
+    # 10:30 UTC = 6:30 AM ET (winter/EST)
+    - cron: '30 10 * * *'
   workflow_dispatch:  # Allow manual trigger for testing
+
+permissions:
+  contents: read
 
 jobs:
   generate-briefing:
@@ -37,3 +40,16 @@ jobs:
           DEFAULT_LON: ${{ vars.DEFAULT_LON || '-74.0060' }}
           DEFAULT_CITY: ${{ vars.DEFAULT_CITY || 'New York City' }}
         run: python generate_briefing.py
+
+      - name: Update WHOOP refresh token for next run
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ -f .new_refresh_token ]; then
+            NEW_TOKEN=$(cat .new_refresh_token)
+            gh secret set WHOOP_REFRESH_TOKEN --body "$NEW_TOKEN"
+            echo "WHOOP refresh token updated for next run"
+          else
+            echo "No new token to save"
+          fi
