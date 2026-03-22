@@ -1,5 +1,6 @@
 .env
 .whoop_tokens.json
+.new_refresh_token
 output/
 __pycache__/
 *.pyc

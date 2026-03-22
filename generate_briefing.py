@@ -62,12 +62,21 @@ TOKEN_FILE = Path(__file__).parent / ".whoop_tokens.json"
 
 def get_whoop_tokens():
     """Refresh WHOOP access token using the refresh token."""
-    # Load saved tokens if available
+    # Load saved tokens — check multiple sources in priority order
     saved_refresh = WHOOP_REFRESH_TOKEN
+
+    # 1. Check local JSON token file (from previous local runs)
     if TOKEN_FILE.exists():
         with open(TOKEN_FILE) as f:
             saved = json.load(f)
-            saved_refresh = saved.get("refresh_token", WHOOP_REFRESH_TOKEN)
+            saved_refresh = saved.get("refresh_token", saved_refresh)
+
+    # 2. Check committed token file (from GitHub Actions previous runs)
+    committed_token_file = Path(__file__).parent / ".whoop_refresh_token"
+    if committed_token_file.exists():
+        token_from_file = committed_token_file.read_text().strip()
+        if token_from_file:
+            saved_refresh = token_from_file
 
     try:
         resp = requests.post(
@@ -77,6 +86,7 @@ def get_whoop_tokens():
                 "client_id": WHOOP_CLIENT_ID,
                 "client_secret": WHOOP_CLIENT_SECRET,
                 "refresh_token": saved_refresh,
+                "scope": "offline",
             },
             headers={"Content-Type": "application/x-www-form-urlencoded"},
             timeout=15,
@@ -84,16 +94,22 @@ def get_whoop_tokens():
         resp.raise_for_status()
         tokens = resp.json()
 
-        # Save new tokens for next time
+        new_refresh = tokens.get("refresh_token", saved_refresh)
+
+        # Save new tokens locally for next time
         with open(TOKEN_FILE, "w") as f:
             json.dump({
                 "access_token": tokens["access_token"],
-                "refresh_token": tokens.get("refresh_token", saved_refresh),
+                "refresh_token": new_refresh,
             }, f)
+
+        # Write new refresh token to a file for GitHub Actions to update the secret
+        new_token_file = Path(__file__).parent / ".new_refresh_token"
+        new_token_file.write_text(new_refresh)
 
         return tokens["access_token"]
     except Exception as e:
-        print(f"⚠ WHOOP token refresh failed: {e}")
+        print(f"WHOOP token refresh failed: {e}")
         return None
 
 

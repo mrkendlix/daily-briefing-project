@@ -2,13 +2,12 @@ name: Daily Briefing
 
 on:
   schedule:
-    # Runs at 6:30 AM Eastern Time
-    # 10:30 UTC = 6:30 AM ET (winter/EST)
+    # 10:30 UTC = 6:30 AM ET (winter/EST), 5:30 AM ET (summer/EDT)
     - cron: '30 10 * * *'
-  workflow_dispatch:  # Allow manual trigger for testing
+  workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   generate-briefing:
@@ -26,11 +25,20 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      - name: Load saved WHOOP token if exists
+        run: |
+          if [ -f .whoop_refresh_token ]; then
+            echo "WHOOP_REFRESH_TOKEN_OVERRIDE=$(cat .whoop_refresh_token)" >> $GITHUB_ENV
+            echo "Loaded saved refresh token from repo"
+          else
+            echo "No saved token file, using secret"
+          fi
+
       - name: Generate and send briefing
         env:
           WHOOP_CLIENT_ID: ${{ secrets.WHOOP_CLIENT_ID }}
           WHOOP_CLIENT_SECRET: ${{ secrets.WHOOP_CLIENT_SECRET }}
-          WHOOP_REFRESH_TOKEN: ${{ secrets.WHOOP_REFRESH_TOKEN }}
+          WHOOP_REFRESH_TOKEN: ${{ env.WHOOP_REFRESH_TOKEN_OVERRIDE || secrets.WHOOP_REFRESH_TOKEN }}
           OPENWEATHER_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
           NEWSAPI_KEY: ${{ secrets.NEWSAPI_KEY }}
           EMAIL_SENDER: ${{ secrets.EMAIL_SENDER }}
@@ -41,15 +49,17 @@ jobs:
           DEFAULT_CITY: ${{ vars.DEFAULT_CITY || 'New York City' }}
         run: python generate_briefing.py
 
-      - name: Update WHOOP refresh token for next run
+      - name: Save new WHOOP refresh token
         if: always()
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ -f .new_refresh_token ]; then
-            NEW_TOKEN=$(cat .new_refresh_token)
-            gh secret set WHOOP_REFRESH_TOKEN --body "$NEW_TOKEN"
-            echo "WHOOP refresh token updated for next run"
+            cp .new_refresh_token .whoop_refresh_token
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add .whoop_refresh_token
+            git diff --cached --quiet || git commit -m "update whoop refresh token [skip ci]"
+            git push
+            echo "New refresh token committed to repo"
           else
             echo "No new token to save"
           fi
